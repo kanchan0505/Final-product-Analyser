@@ -24,7 +24,7 @@ node_modules/
 # Model / dataset files (if any)
 datasets/
 models/
-*.pkl
+
 *.h5
 *.pt
 *.pth
