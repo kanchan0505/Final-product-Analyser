@@ -5,43 +5,52 @@ import pickle
 import os
 import pathlib
 import string
-from dotenv import load_dotenv
+import nltk
 from nltk.corpus import stopwords
+from dotenv import load_dotenv
+
+# Download NLTK stopwords (needed on Render)
+nltk.download("stopwords")
 
 app = FastAPI()
 
+# Allow requests from your Vercel frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://final-product-analyser.onrender.com"],
+    allow_origins=["https://final-product-analyser.vercel.app"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 @app.get("/")
 def greet():
     return {"message": "Product Sentiment API is running"}
 
-
+# Load environment variables
 load_dotenv()
+
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL is not set")
 
+# Load ML model and vectorizer
 BASE_DIR = pathlib.Path(__file__).parent.parent
+
 with open(BASE_DIR / "sentiment_model.pkl", "rb") as f:
     model = pickle.load(f)
 
 with open(BASE_DIR / "vectorizer.pkl", "rb") as f:
     vectorizer = pickle.load(f)
 
-
+# Load stopwords
 stop_words = set(stopwords.words("english"))
 
+# Database connection
 def get_db():
     return psycopg2.connect(DATABASE_URL, sslmode="require")
 
-
-
+# Text preprocessing
 def clean_text(text):
     text = text.lower()
     text = text.translate(str.maketrans("", "", string.punctuation))
@@ -51,13 +60,12 @@ def clean_text(text):
 
     return " ".join(words)
 
-
+# Sentiment analysis endpoint
 @app.get("/analyze/{product_name}")
 def analyze_product(product_name: str):
 
     with get_db() as conn:
         with conn.cursor() as cursor:
-
             cursor.execute(
                 "SELECT review FROM reviews WHERE product_name = %s",
                 (product_name,)
@@ -95,13 +103,12 @@ def analyze_product(product_name: str):
         "recommendation": recommendation
     }
 
-
+# Product list endpoint
 @app.get("/products")
 def get_products():
 
     with get_db() as conn:
         with conn.cursor() as cursor:
-
             cursor.execute("""
                 SELECT DISTINCT product_id, product_name
                 FROM reviews
