@@ -17,7 +17,8 @@ app = FastAPI()
 # Allow requests from your Vercel frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://final-product-analyser.vercel.app"],
+    allow_origins=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
