@@ -1,0 +1,30 @@
+# Python virtual environment
+env/
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Node dependencies
+node_modules/
+
+# Next.js build files
+.next/
+
+# Environment variables
+.env
+
+# Mac system files
+.DS_Store
+
+# Logs
+*.log
+
+# Model / dataset files (if any)
+datasets/
+models/
+*.pkl
+*.h5
+*.pt
+*.pth
