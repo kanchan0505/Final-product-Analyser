@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:8000";
+const API_BASE = "https://final-product-analyser.onrender.com";
 
 export async function getProducts() {
   const res = await fetch(`${API_BASE}/products`);
