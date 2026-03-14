@@ -5,6 +5,7 @@ import pickle
 import os
 import pathlib
 import string
+import time
 import nltk
 from nltk.corpus import stopwords
 from dotenv import load_dotenv
@@ -14,7 +15,7 @@ nltk.download("stopwords", quiet=True)
 
 app = FastAPI()
 
-# Allow requests from Vercel (including preview deployments)
+# Allow requests from frontend and all origins
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -117,29 +118,54 @@ def analyze_product(product_name: str):
     except Exception as e:
         return {"error": str(e)}
 
-# Product list endpoint
-@app.get("/products")
-def get_products():
+import time
 
+# Cache products to avoid repeated database queries
+_products_cache = None
+_cache_timestamp = None
+CACHE_DURATION = 300  # 5 minutes
+
+def get_cached_products():
+    global _products_cache, _cache_timestamp
+    
+    current_time = time.time()
+    
+    # Return cached products if still valid
+    if _products_cache is not None and _cache_timestamp is not None:
+        if current_time - _cache_timestamp < CACHE_DURATION:
+            return _products_cache
+    
+    # Fetch from database
     try:
         with get_db() as conn:
             with conn.cursor() as cursor:
-
                 cursor.execute("""
-                    SELECT DISTINCT product_id, product_name
+                    SELECT DISTINCT ON (product_name) product_id, product_name
                     FROM reviews
                     WHERE product_name IS NOT NULL
                     ORDER BY product_name
                 """)
-
+                
                 rows = cursor.fetchall()
-
+        
         products = [
             {"product_id": r[0], "product_name": r[1]}
             for r in rows
         ]
+        
+        # Update cache
+        _products_cache = products
+        _cache_timestamp = current_time
+        
+        return products
+    except Exception as e:
+        raise Exception(f"Failed to fetch products: {e}")
 
+# Product list endpoint
+@app.get("/products")
+def get_products():
+    try:
+        products = get_cached_products()
         return {"products": products}
-
     except Exception as e:
         return {"error": str(e)}
