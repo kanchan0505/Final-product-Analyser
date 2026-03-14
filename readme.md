@@ -16,44 +16,6 @@ save trained model
 
 
 
-#CSV FILE DATASET----------
-
-Column
-Meaning
-Needed for your project?
-Id
-Row identifier
-❌ No
-ProductId
-Product identifier
-❌ No
-UserId
-User identifier
-❌ No
-ProfileName
-Reviewer name
-❌ No
-HelpfulnessNumerator
-Helpful votes
-❌ No
-HelpfulnessDenominator
-Total votes
-❌ No
-Score
-Rating (1–5)
-✅ Yes
-Time
-Timestamp
-❌ No
-Summary
-Short review title
-❌ Optional
-Text
-Full review text
-✅ Yes
-
-
-
 #Python interpreter-----
 1)python3-- The Python interpreter is a program that allows you to run Python code directly in the terminal.
 
