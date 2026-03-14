@@ -31,22 +31,86 @@ export default function ProductSearch() {
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [error, setError] = useState(null);
   const [loadingStep, setLoadingStep] = useState(0);
+  const [productsError, setProductsError] = useState(null);
 
   // Load products on page load
   useEffect(() => {
+    let isMounted = true;
+
     async function loadProducts() {
       try {
+        // Try to load from localStorage first
+        const cached = localStorage.getItem("products_cache");
+        if (cached) {
+          const cachedData = JSON.parse(cached);
+          if (isMounted) {
+            setProducts(cachedData);
+            setLoadingProducts(false);
+          }
+        }
+
+        setProductsError(null);
         const data = await getProducts();
-        setProducts(data || []);
-      } catch {
-        setError("Failed to load products");
+        if (isMounted) {
+          setProducts(data || []);
+          // Cache for next time
+          localStorage.setItem("products_cache", JSON.stringify(data || []));
+        }
+      } catch (err) {
+        if (isMounted) {
+          setProductsError("Failed to load products. Please check if the backend is running.");
+          // Still show cached data even if fetch fails
+          const cached = localStorage.getItem("products_cache");
+          if (cached) {
+            setProducts(JSON.parse(cached));
+          } else {
+            setProducts([]);
+          }
+        }
       } finally {
-        setLoadingProducts(false);
+        if (isMounted) {
+          setLoadingProducts(false);
+        }
       }
     }
 
     loadProducts();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
+
+  // Retry loading products
+  const handleRetryLoadProducts = async () => {
+    setLoadingProducts(true);
+    setProductsError(null);
+    let isMounted = true;
+
+    try {
+      const data = await getProducts();
+      if (isMounted) {
+        setProducts(data || []);
+        // Cache for next time
+        localStorage.setItem("products_cache", JSON.stringify(data || []));
+      }
+    } catch (err) {
+      if (isMounted) {
+        setProductsError("Failed to load products. Please check if the backend is running.");
+        // Try to show cached data on error
+        const cached = localStorage.getItem("products_cache");
+        if (cached) {
+          setProducts(JSON.parse(cached));
+        } else {
+          setProducts([]);
+        }
+      }
+    } finally {
+      if (isMounted) {
+        setLoadingProducts(false);
+      }
+    }
+  };
 
   // Cycle through loading steps
   useEffect(() => {
@@ -76,8 +140,8 @@ export default function ProductSearch() {
       } else {
         setResult(data);
       }
-    } catch {
-      setError("Failed to analyze product");
+    } catch (err) {
+      setError(err.message || "Failed to analyze product. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -116,8 +180,10 @@ export default function ProductSearch() {
               value={selectedProduct}
               onChange={(e) => setSelectedProduct(e.target.value)}
               fullWidth
-              disabled={loadingProducts}
+              disabled={productsError !== null || (loadingProducts && products.length === 0)}
               size="medium"
+              error={productsError !== null}
+              helperText={productsError}
               sx={{
                 flex: 1,
                 "& .MuiOutlinedInput-root": {
@@ -129,8 +195,17 @@ export default function ProductSearch() {
                 },
               }}
             >
-              {loadingProducts ? (
-                <MenuItem disabled>Loading products...</MenuItem>
+              {loadingProducts && products.length === 0 ? (
+                <MenuItem disabled>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <CircularProgress size={16} />
+                    Loading products...
+                  </Box>
+                </MenuItem>
+              ) : productsError ? (
+                <MenuItem disabled>Error loading products</MenuItem>
+              ) : products.length === 0 ? (
+                <MenuItem disabled>No products available</MenuItem>
               ) : (
                 products.map((product) => (
                   <MenuItem key={product.product_id} value={product.product_name}>
@@ -140,29 +215,45 @@ export default function ProductSearch() {
               )}
             </TextField>
 
+            {/* Retry Button */}
+            {productsError && (
+              <Button
+                variant="outlined"
+                onClick={handleRetryLoadProducts}
+                size="large"
+                sx={{
+                  minWidth: 180,
+                }}
+              >
+                Retry
+              </Button>
+            )}
+
             {/* Analyze Button */}
-            <Button
-              variant="contained"
-              onClick={handleAnalyze}
-              disabled={!selectedProduct || loading}
-              size="large"
-              startIcon={
-                loading ? (
-                  <CircularProgress size={18} color="inherit" />
-                ) : (
-                  <SparklesIcon width={18} height={18} />
-                )
-              }
-              sx={{
-                px: 4,
-                py: 1.7,
-                minWidth: 180,
-                fontSize: "0.95rem",
-                borderradius: 1,
-              }}
-            >
-              {loading ? "Analyzing..." : "Analyze"}
-            </Button>
+            {!productsError && (
+              <Button
+                variant="contained"
+                onClick={handleAnalyze}
+                disabled={!selectedProduct || loading}
+                size="large"
+                startIcon={
+                  loading ? (
+                    <CircularProgress size={18} color="inherit" />
+                  ) : (
+                    <SparklesIcon width={18} height={18} />
+                  )
+                }
+                sx={{
+                  px: 4,
+                  py: 1.7,
+                  minWidth: 180,
+                  fontSize: "0.95rem",
+                  borderradius: 1,
+                }}
+              >
+                {loading ? "Analyzing..." : "Analyze"}
+              </Button>
+            )}
           </Box>
         </CardContent>
       </Card>
@@ -274,7 +365,17 @@ export default function ProductSearch() {
               <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
                 Something went wrong
               </Typography>
-              <Typography color="text.secondary">{error}</Typography>
+              <Typography color="text.secondary" sx={{ mb: 2 }}>
+                {error}
+              </Typography>
+              <Button
+                variant="outlined"
+                color="error"
+                onClick={handleAnalyze}
+                disabled={!selectedProduct}
+              >
+                Try Again
+              </Button>
             </Card>
           </motion.div>
         )}
